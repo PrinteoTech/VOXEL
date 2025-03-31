@@ -2,8 +2,12 @@ import numpy as np
 import tensorflow as tf 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding
+import os
+import datetime
 
 # import math 
+
+
 
 alphabet = "abcdefghijklmnopqrstuvwxyz-"
 nbLetter = {char: idx + 1 for idx, char in enumerate(alphabet)}
@@ -41,6 +45,12 @@ while j < len(tableauMots):
         print(f"X: {x_seq.flatten()}  Y: {y_val}")
     j += 1
 
+def predict_next_letter(sequence):
+    seq_encoded = np.array([[nbLetter[char] for char in sequence]])
+    predicted_index = np.argmax(model.predict(seq_encoded))
+    predicted_letter = nbToLetter[predicted_index]
+    return predicted_letter
+
 # testNbToLetter = [2, 7, 0, 19]
 # texte1 = "".join(nbToLetter[num] for num in testNbToLetter)
 # print(texte1) 
@@ -55,9 +65,27 @@ model.add(Embedding(
     mask_zero=False,  
     input_length=3))
 
-test_input = np.array([x_np[0]])
+model.add(tf.keras.layers.LSTM(
+    units=50,
+    activation='tanh',
+    return_sequences=False))
 
-embedded_output = model.predict(test_input)
+model.add(tf.keras.layers.Dense(
+    units=28,
+    activation='softmax'))
 
-print("Shape des embeddings:", embedded_output.shape)
-print("Valeur des embeddings:", embedded_output)
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+if os.path.exists("model_best.h5"):
+    model.load_weights("model_best.h5")
+    print("Poids du modèle chargés !")
+
+model.fit(x_np, y_np, epochs=500, batch_size=1, callbacks=[tensorboard_callback])
+model.save("model_best.h5")
+
+sequence_test = "cha"  # Essaie de prédire la lettre après "cha"
+predicted = predict_next_letter(sequence_test)
+print(f"Séquence test : {sequence_test} -> Lettre prédite : {predicted}")
